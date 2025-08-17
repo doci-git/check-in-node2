@@ -1,8 +1,0 @@
-[build]
-  functions = "backend"    # Cartella che contiene le funzioni serverless
-  publish = "public"         # Cartella che contiene i file statici (frontend)
-
-[[redirects]]
-  from = "/api/*"            # Le richieste API vengono reindirizzate alle funzioni
-  to = "/.netlify/functions/:splat"  # Netlify mappa le richieste API alle funzioni
-  status = 200
