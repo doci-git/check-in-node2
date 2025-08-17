@@ -162,36 +162,34 @@ function formatTime(minutes) {
 }
 
 // Attiva dispositivo
-async function activateDevice(deviceConfig) {
-  if (!AppState.token) {
-    showAlert("Sessione non valida");
+async function activateDevice(deviceId) {
+  const session = JSON.parse(localStorage.getItem("shelly_session"));
+
+  if (!session) {
+    alert("Effettua prima il login");
     return;
   }
 
   try {
-    const response = await fetch(`${CONFIG.API_BASE_URL}/activate`, {
+    const response = await fetch("http://localhost:3000/api/device/activate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${AppState.token}`,
+        Authorization: session.token,
+        "Session-ID": session.sessionId,
       },
-      body: JSON.stringify({
-        device: deviceConfig.name,
-        token: AppState.token,
-      }),
+      body: JSON.stringify({ deviceId }),
     });
 
-    const data = await parseResponse(response);
-
-    if (data.error) {
-      throw new Error(data.error);
+    if (!response.ok) {
+      throw new Error(await response.text());
     }
 
-    showAlert(data.message);
-    updateStatus();
+    const result = await response.json();
+    console.log("Dispositivo attivato:", result);
   } catch (error) {
-    console.error(`Activate ${deviceConfig.name} error:`, error);
-    showAlert(error.message);
+    console.error("Errore attivazione:", error);
+    alert(`Errore: ${error.message}`);
   }
 }
 

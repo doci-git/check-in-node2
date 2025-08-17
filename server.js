@@ -7,7 +7,7 @@ const app = express();
 
 // Configurazione Shelly Cloud
 const SHELLY_CONFIG = {
-  CLOUD_URL: "https://shelly-73-eu.shelly.cloud",
+  CLOUD_URL: "https://shelly-73-eu.shelly.cloud/v2/devices/api/set/switch",
   DEVICES: {
     MAIN_DOOR: {
       id: "e4b063f0c38c",
