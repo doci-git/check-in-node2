@@ -3,33 +3,31 @@ const crypto = require("crypto");
 const CORRECT_CODE = "2245";
 const TIME_LIMIT_MINUTES = 2;
 const SECRET_KEY = "musart_secret_123";
-
-exports.handler = async (event) => {
+exports.handler = async function (event, context) {
   try {
-    const { code } = JSON.parse(event.body);
+    const body = JSON.parse(event.body); // Assumiamo che il codice venga passato nel body
+    const insertedCode = body.code;
 
-    if (code !== CORRECT_CODE) {
+    const CORRECT_CODE = "2245";
+
+    // Verifica se il codice inserito è corretto
+    if (insertedCode !== CORRECT_CODE) {
       return {
-        statusCode: 401,
-        body: JSON.stringify({ error: "Invalid code" }),
+        statusCode: 400, // Codice di errore
+        body: JSON.stringify({ message: "Incorrect code! Please try again." }),
       };
     }
 
-    const now = Date.now().toString();
-    const hash = crypto
-      .createHash("sha256")
-      .update(now + SECRET_KEY)
-      .digest("hex");
-
+    // Se il codice è corretto
     return {
-      statusCode: 200,
-      body: JSON.stringify({
-        startTime: now,
-        hash,
-        expiresIn: TIME_LIMIT_MINUTES * 60,
-      }),
+      statusCode: 200, // Codice di successo
+      body: JSON.stringify({ message: "Code is correct! Access granted." }),
     };
-  } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+  } catch (error) {
+    console.error("Error in checkCode function:", error); // Log dell'errore
+    return {
+      statusCode: 500, // Codice di errore interno
+      body: JSON.stringify({ message: "Internal server error" }),
+    };
   }
 };

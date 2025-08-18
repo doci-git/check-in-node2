@@ -3,41 +3,37 @@ const crypto = require("crypto");
 const TIME_LIMIT_MINUTES = 2;
 const SECRET_KEY = "musart_secret_123";
 
-exports.handler = async (event) => {
+// functions/status.js
+// functions/status.js
+exports.handler = async (event, context) => {
   try {
-    const { startTime, hash } = JSON.parse(event.body);
+    console.log("Received event:", event); // Log dell'evento per debug
 
-    const calcHash = crypto
-      .createHash("sha256")
-      .update(startTime + SECRET_KEY)
-      .digest("hex");
-
-    if (calcHash !== hash) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ expired: true, reason: "Security violation" }),
-      };
-    }
-
-    const now = Date.now();
-    const minutesPassed = (now - parseInt(startTime, 10)) / (1000 * 60);
-
-    if (minutesPassed >= TIME_LIMIT_MINUTES) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ expired: true, reason: "Session expired" }),
-      };
+    // Simuliamo un dato, non usare una funzione non definita
+    const someData = { status: "OK" }; // Dati fittizi da restituire
+    
+    if (!someData) {
+      throw new Error("Data not found");
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        expired: false,
-        minutesLeft: Math.floor(TIME_LIMIT_MINUTES - minutesPassed),
-        secondsLeft: Math.floor(60 - (minutesPassed % 1) * 60),
-      }),
+      body: JSON.stringify({ message: "Status is OK!", data: someData }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',  // CORS per chiamate cross-origin
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      },
     };
-  } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+  } catch (error) {
+    console.error("Server Error:", error);  // Log dell'errore nel server
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      },
+    };
   }
 };
+
