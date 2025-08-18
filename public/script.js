@@ -14,6 +14,13 @@ const CONFIG = {
   },
 };
 
+// Cache
+const CACHE = {
+  status: null,
+  lastUpdated: 0,
+  ttl: 3000, // 3 secondi di cache
+};
+
 // Stato applicazione
 const AppState = {
   token: null,
@@ -37,6 +44,7 @@ const DOM = {
 // Inizializzazione
 function init() {
   setupEventListeners();
+  setupOfflineDetection();
 }
 
 // Configura event listeners
@@ -48,6 +56,21 @@ function setupEventListeners() {
   DOM.aptDoorBtn.addEventListener("click", () =>
     activateDevice(CONFIG.DEVICES.APT_DOOR)
   );
+}
+
+// Gestione stato offline/online
+function setupOfflineDetection() {
+  window.addEventListener("offline", () => {
+    showAlert(
+      "Connessione persa. Alcune funzionalità potrebbero non essere disponibili.",
+      "warning"
+    );
+  });
+
+  window.addEventListener("online", () => {
+    showAlert("Connessione ripristinata.", "success");
+    if (AppState.token) updateStatus();
+  });
 }
 
 // Gestione login
@@ -77,6 +100,7 @@ async function handleLogin() {
 
     showControlPanel();
     startStatusUpdates();
+    showAlert(data.message, "success");
   } catch (error) {
     console.error("Login error:", error);
     showAlert(error.message);
@@ -103,9 +127,15 @@ function stopStatusUpdates() {
   }
 }
 
-// Aggiorna stato
+// Aggiorna stato con cache
 async function updateStatus() {
   if (!AppState.token) return;
+
+  const now = Date.now();
+  if (CACHE.status && now - CACHE.lastUpdated < CACHE.ttl) {
+    updateUI(CACHE.status, calculateTimeLeft(CACHE.status.startTime));
+    return;
+  }
 
   try {
     const response = await fetch(
@@ -117,17 +147,21 @@ async function updateStatus() {
       throw new Error(data.error);
     }
 
-    const minutesLeft = Math.max(
-      0,
-      AppState.timeLimit -
-        Math.floor((Date.now() - data.startTime) / (1000 * 60))
-    );
+    CACHE.status = data;
+    CACHE.lastUpdated = now;
 
-    updateUI(data, minutesLeft);
+    updateUI(data, calculateTimeLeft(data.startTime));
   } catch (error) {
     console.error("Update status error:", error);
     handleSessionError(error.message);
   }
+}
+
+function calculateTimeLeft(startTime) {
+  return Math.max(
+    0,
+    AppState.timeLimit - Math.floor((Date.now() - startTime) / (1000 * 60))
+  );
 }
 
 // Gestione errori sessione
@@ -138,6 +172,7 @@ function handleSessionError(errorMessage) {
     DOM.controlPanel.style.display = "none";
     stopStatusUpdates();
     AppState.token = null;
+    CACHE.status = null;
   }
 }
 
@@ -173,7 +208,6 @@ async function activateDevice(deviceConfig) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${AppState.token}`,
       },
       body: JSON.stringify({
         device: deviceConfig.name,
@@ -187,7 +221,9 @@ async function activateDevice(deviceConfig) {
       throw new Error(data.error);
     }
 
-    showAlert(data.message);
+    showAlert(data.message, "success");
+    // Invalida cache dopo attivazione
+    CACHE.status = null;
     updateStatus();
   } catch (error) {
     console.error(`Activate ${deviceConfig.name} error:`, error);
@@ -205,9 +241,22 @@ async function parseResponse(response) {
   }
 }
 
-// Mostra alert
-function showAlert(message) {
-  alert(message);
+// Mostra alert migliorato
+function showAlert(message, type = "error") {
+  const alertBox = document.createElement("div");
+  alertBox.className = `custom-alert ${type}`;
+  alertBox.innerHTML = `
+    <div class="alert-content">
+      <p>${message}</p>
+      <button onclick="this.parentElement.parentElement.remove()">OK</button>
+    </div>
+  `;
+
+  document.body.appendChild(alertBox);
+  setTimeout(() => {
+    alertBox.classList.add("fade-out");
+    setTimeout(() => alertBox.remove(), 500);
+  }, 5000);
 }
 
 // Inizializza app

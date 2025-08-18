@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
 const fetch = require("node-fetch");
+const compression = require("compression");
+const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
 
 const app = express();
 
@@ -35,6 +38,8 @@ const APP_CONFIG = {
 };
 
 // Middleware
+app.use(helmet());
+app.use(compression());
 app.use(express.json());
 app.use(
   cors({
@@ -44,6 +49,14 @@ app.use(
 );
 app.use(express.static("public"));
 
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Troppe richieste da questo IP, riprova più tardi",
+});
+app.use(limiter);
+
 // Storage sessioni
 const sessions = new Map();
 
@@ -52,8 +65,11 @@ function generateToken() {
   return crypto.randomBytes(32).toString("hex");
 }
 
-// Attiva dispositivo Shelly
+// Attiva dispositivo Shelly con timeout
 async function activateShellyDevice(deviceConfig) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
   try {
     const response = await fetch(
       `${SHELLY_CONFIG.CLOUD_URL}/device/relay/control`,
@@ -69,15 +85,18 @@ async function activateShellyDevice(deviceConfig) {
           turn: "on",
           timer: 5.0,
         }),
+        signal: controller.signal,
       }
     );
 
+    clearTimeout(timeout);
     const data = await response.json();
     return {
       success: response.ok,
       data: data,
     };
   } catch (error) {
+    clearTimeout(timeout);
     console.error("Shelly activation error:", error);
     return { success: false, error: error.message };
   }
@@ -147,14 +166,12 @@ app.post("/api/activate", async (req, res) => {
   try {
     const { device, token } = req.body;
 
-    // Verifica token
     if (!token || !sessions.has(token)) {
       return res.status(401).json({ error: "Token non valido" });
     }
 
     const session = sessions.get(token);
 
-    // Verifica dispositivo
     if (!device || !session.clicks[device]) {
       return res.status(400).json({ error: "Dispositivo non valido" });
     }
@@ -163,7 +180,6 @@ app.post("/api/activate", async (req, res) => {
       return res.status(400).json({ error: "Nessun click rimasto" });
     }
 
-    // Trova configurazione dispositivo
     const deviceConfig = Object.values(SHELLY_CONFIG.DEVICES).find(
       (d) => d.name === device
     );
@@ -173,7 +189,6 @@ app.post("/api/activate", async (req, res) => {
         .json({ error: "Configurazione dispositivo non trovata" });
     }
 
-    // Attiva dispositivo Shelly
     const activationResult = await activateShellyDevice(deviceConfig);
     if (!activationResult.success) {
       return res.status(500).json({
@@ -182,8 +197,8 @@ app.post("/api/activate", async (req, res) => {
       });
     }
 
-    // Aggiorna sessioni
     session.clicks[device]--;
+    sessions.set(token, session);
 
     res.json({
       message: `Dispositivo ${device} attivato con successo`,
@@ -195,6 +210,19 @@ app.post("/api/activate", async (req, res) => {
     res.status(500).json({ error: "Errore durante l'attivazione" });
   }
 });
+
+// Pulizia sessioni scadute
+function cleanExpiredSessions() {
+  const now = Date.now();
+  for (const [token, session] of sessions.entries()) {
+    const elapsed = (now - session.startTime) / 60000;
+    if (elapsed > APP_CONFIG.TIME_LIMIT_MINUTES) {
+      sessions.delete(token);
+    }
+  }
+}
+
+setInterval(cleanExpiredSessions, 60000);
 
 // Avvio server
 app.listen(APP_CONFIG.PORT, () => {
