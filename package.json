@@ -1,21 +1,24 @@
 {
-  "name": "test-web",
+  "name": "musart-checkin-system",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "server/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server/server.js",
+    "build": "echo 'Build completato'",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "axios": "^1.11.0",
     "body-parser": "^2.2.0",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
     "express": "^5.1.0",
+    "express-rate-limit": "^6.7.0",
+    "helmet": "^7.1.0",
     "node-fetch": "^3.3.2",
     "uuid": "^11.1.0"
   },
-  "description": ""
+  "engines": {
+    "node": ">=16.0.0"
+  }
 }
