@@ -47,7 +47,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "https://musart-check-in.netlify.app",
+      "https://test2check-in.netlify.app",
       "https://test2check-in.netlify.app/",
     ],
     methods: ["GET", "POST", "OPTIONS"],
