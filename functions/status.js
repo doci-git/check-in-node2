@@ -1,11 +1,12 @@
 const crypto = require("crypto");
 
+// Configurazione
 const TIME_LIMIT_MINUTES = 2;
 const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
 const CORRECT_CODE = process.env.ACCESS_CODE || "2245";
 
 exports.handler = async (event) => {
-  // CORS preflight
+  // Gestione CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -19,20 +20,20 @@ exports.handler = async (event) => {
   }
 
   try {
-    // Health check endpoint
+    // Endpoint di health check
     if (event.httpMethod === "GET") {
       return {
         statusCode: 200,
         headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({
           status: "OK",
-          service: "Door Control System",
+          service: "MusArt Door Control",
           version: "1.0",
         }),
       };
     }
 
-    // Verify session
+    // Verifica sessione
     const { startTime, hash } = JSON.parse(event.body);
 
     if (!startTime || !hash) {
@@ -43,7 +44,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Verify hash
+    // Verifica hash sessione
     const expectedHash = crypto
       .createHmac("sha256", SECRET_KEY)
       .update(`${startTime}${CORRECT_CODE}`)
@@ -54,13 +55,14 @@ exports.handler = async (event) => {
         statusCode: 401,
         headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({
+          error: "Invalid session",
           expired: true,
           reason: "Invalid session token",
         }),
       };
     }
 
-    // Calculate remaining time
+    // Calcola tempo rimanente
     const now = Date.now();
     const expiresAt = startTime + TIME_LIMIT_MINUTES * 60 * 1000;
     const timeLeft = expiresAt - now;
@@ -71,7 +73,7 @@ exports.handler = async (event) => {
         headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({
           expired: true,
-          reason: "Session expired",
+          reason: "Session expired!",
         }),
       };
     }
@@ -91,7 +93,7 @@ exports.handler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("Status error:", error);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },

@@ -1,11 +1,12 @@
 const crypto = require("crypto");
 
+// Configurazione
 const CORRECT_CODE = process.env.ACCESS_CODE || "2245";
 const TIME_LIMIT_MINUTES = 2;
 const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
 
 exports.handler = async (event) => {
-  // CORS preflight
+  // Gestione CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -19,6 +20,7 @@ exports.handler = async (event) => {
   }
 
   try {
+    // Verifica metodo HTTP
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
@@ -29,6 +31,7 @@ exports.handler = async (event) => {
 
     const { code } = JSON.parse(event.body);
 
+    // Validazione input
     if (!code) {
       return {
         statusCode: 400,
@@ -37,18 +40,19 @@ exports.handler = async (event) => {
       };
     }
 
+    // Verifica codice
     if (code !== CORRECT_CODE) {
       return {
         statusCode: 401,
         headers: { "Access-Control-Allow-Origin": "*" },
         body: JSON.stringify({
           error: "Invalid code",
-          message: "Incorrect access code",
+          message: "Incorrect code! Please try again.",
         }),
       };
     }
 
-    // Create session
+    // Crea sessione con scadenza
     const startTime = Date.now();
     const expiresAt = startTime + TIME_LIMIT_MINUTES * 60 * 1000;
     const hash = crypto
@@ -71,7 +75,7 @@ exports.handler = async (event) => {
       }),
     };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("CheckCode error:", error);
     return {
       statusCode: 500,
       headers: { "Access-Control-Allow-Origin": "*" },
