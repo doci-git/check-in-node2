@@ -1,6 +1,6 @@
 // Configurazioni
 const CONFIG = {
-  API_BASE_URL: "http://localhost:3000/api",
+  API_BASE_URL: "https://test2check-in.netlify.app/api",
   UPDATE_INTERVAL: 5000,
   DEVICES: {
     MAIN_DOOR: {

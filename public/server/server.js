@@ -45,8 +45,13 @@ app.use(compression());
 app.use(express.json());
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGIN || "http://localhost:3000",
-    methods: ["GET", "POST"],
+    origin: [
+      "http://localhost:3000",
+      "https://test2check-in.netlify.app",
+      "https://test2check-in.netlify.app/",
+    ],
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(express.static("public"));
