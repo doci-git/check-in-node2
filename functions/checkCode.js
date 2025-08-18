@@ -1,33 +1,84 @@
 const crypto = require("crypto");
 
-const CORRECT_CODE = "2245";
+const CORRECT_CODE = process.env.ACCESS_CODE || "2245";
 const TIME_LIMIT_MINUTES = 2;
-const SECRET_KEY = "musart_secret_123";
-exports.handler = async function (event, context) {
+const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
+
+exports.handler = async (event) => {
+  // CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: JSON.stringify({ message: "CORS preflight" }),
+    };
+  }
+
   try {
-    const body = JSON.parse(event.body); // Assumiamo che il codice venga passato nel body
-    const insertedCode = body.code;
-
-    const CORRECT_CODE = "2245";
-
-    // Verifica se il codice inserito è corretto
-    if (insertedCode !== CORRECT_CODE) {
+    if (event.httpMethod !== "POST") {
       return {
-        statusCode: 400, // Codice di errore
-        body: JSON.stringify({ message: "Incorrect code! Please try again." }),
+        statusCode: 405,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "Method Not Allowed" }),
       };
     }
 
-    // Se il codice è corretto
+    const { code } = JSON.parse(event.body);
+
+    if (!code) {
+      return {
+        statusCode: 400,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "Code is required" }),
+      };
+    }
+
+    if (code !== CORRECT_CODE) {
+      return {
+        statusCode: 401,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+          error: "Invalid code",
+          message: "Incorrect access code",
+        }),
+      };
+    }
+
+    // Create session
+    const startTime = Date.now();
+    const expiresAt = startTime + TIME_LIMIT_MINUTES * 60 * 1000;
+    const hash = crypto
+      .createHmac("sha256", SECRET_KEY)
+      .update(`${startTime}${CORRECT_CODE}`)
+      .digest("hex");
+
     return {
-      statusCode: 200, // Codice di successo
-      body: JSON.stringify({ message: "Code is correct! Access granted." }),
+      statusCode: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        success: true,
+        message: "Access granted",
+        session: {
+          startTime,
+          expiresAt,
+          hash,
+          timeLimit: TIME_LIMIT_MINUTES,
+        },
+      }),
     };
   } catch (error) {
-    console.error("Error in checkCode function:", error); // Log dell'errore
+    console.error("Error:", error);
     return {
-      statusCode: 500, // Codice di errore interno
-      body: JSON.stringify({ message: "Internal server error" }),
+      statusCode: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        error: error.message,
+        message: "Internal server error",
+      }),
     };
   }
 };

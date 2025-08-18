@@ -1,39 +1,104 @@
 const crypto = require("crypto");
 
 const TIME_LIMIT_MINUTES = 2;
-const SECRET_KEY = "musart_secret_123";
+const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
+const CORRECT_CODE = process.env.ACCESS_CODE || "2245";
 
-// functions/status.js
-// functions/status.js
-exports.handler = async (event, context) => {
+exports.handler = async (event) => {
+  // CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: JSON.stringify({ message: "CORS preflight" }),
+    };
+  }
+
   try {
-    console.log("Received event:", event); // Log dell'evento per debug
-
-    // Simuliamo un dato, non usare una funzione non definita
-    const someData = { status: "OK" }; // Dati fittizi da restituire
-    
-    if (!someData) {
-      throw new Error("Data not found");
+    // Health check endpoint
+    if (event.httpMethod === "GET") {
+      return {
+        statusCode: 200,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+          status: "OK",
+          service: "Door Control System",
+          version: "1.0",
+        }),
+      };
     }
+
+    // Verify session
+    const { startTime, hash } = JSON.parse(event.body);
+
+    if (!startTime || !hash) {
+      return {
+        statusCode: 400,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({ error: "Missing session data" }),
+      };
+    }
+
+    // Verify hash
+    const expectedHash = crypto
+      .createHmac("sha256", SECRET_KEY)
+      .update(`${startTime}${CORRECT_CODE}`)
+      .digest("hex");
+
+    if (hash !== expectedHash) {
+      return {
+        statusCode: 401,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+          expired: true,
+          reason: "Invalid session token",
+        }),
+      };
+    }
+
+    // Calculate remaining time
+    const now = Date.now();
+    const expiresAt = startTime + TIME_LIMIT_MINUTES * 60 * 1000;
+    const timeLeft = expiresAt - now;
+
+    if (timeLeft <= 0) {
+      return {
+        statusCode: 200,
+        headers: { "Access-Control-Allow-Origin": "*" },
+        body: JSON.stringify({
+          expired: true,
+          reason: "Session expired",
+        }),
+      };
+    }
+
+    const minutesLeft = Math.floor(timeLeft / (60 * 1000));
+    const secondsLeft = Math.floor((timeLeft % (60 * 1000)) / 1000);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Status is OK!", data: someData }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',  // CORS per chiamate cross-origin
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      },
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        expired: false,
+        minutesLeft,
+        secondsLeft,
+        timeLeft,
+        message: "Session active",
+      }),
     };
   } catch (error) {
-    console.error("Server Error:", error);  // Log dell'errore nel server
+    console.error("Error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Internal Server Error', message: error.message }),
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      },
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: JSON.stringify({
+        error: error.message,
+        message: "Internal server error",
+      }),
     };
   }
 };
-

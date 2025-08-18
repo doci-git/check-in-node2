@@ -1,8 +1,16 @@
 [build]
   functions = "functions"
-  publish = "public"
+  command = "npm run build"
+
+[dev]
+  framework = "#static"
+  targetPort = 8888
+  autoLaunch = false
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/*"
+  to = "/index.html"
   status = 200
+
+[functions]
+  node_bundler = "esbuild"
