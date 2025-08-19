@@ -7,33 +7,42 @@ const MAX_CLICKS = 3;
 let timeCheckInterval;
 let sessionData = null; // conterrà startTime e hash dal server
 
-// --- Gestione storage locale ---
-function setStorage(key, value, minutes) {
+// --- Gestione storage ---
+function setStorage(key, value) {
   localStorage.setItem(key, value);
 }
 function getStorage(key) {
   return localStorage.getItem(key);
 }
 
-// --- Gestione tempo via backend ---
+// --- Controllo tempo ---
 async function checkTimeLimit() {
   if (!sessionData) return true;
+  console.log("[DEBUG] Check session →", sessionData);
+
   try {
     const response = await fetch("/.netlify/functions/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(sessionData),
     });
+    console.log("[DEBUG] /state response status:", response.status);
+
     const result = await response.json();
+    console.log("[DEBUG] /state response body:", result);
+
     if (!response.ok) {
       showFatalError(result.error || "Session expired");
       return true;
     }
+
     document.getElementById("timeRemaining").textContent = `${result.minutesLeft
       .toString()
       .padStart(2, "0")}:${result.secondsLeft.toString().padStart(2, "0")}`;
+
     return false;
-  } catch {
+  } catch (err) {
+    console.error("[DEBUG] Errore fetch /state:", err);
     showFatalError("Connessione persa");
     return true;
   }
@@ -60,7 +69,7 @@ function updateStatusBar() {
     getClicksLeft("clicks_AptDoor");
 }
 
-// --- Attivazione via backend ---
+// --- Attivazione device ---
 async function activateDevice(device) {
   if (await checkTimeLimit()) return;
 
@@ -73,19 +82,25 @@ async function activateDevice(device) {
   setClicksLeft(device.storage_key, --clicksLeft);
 
   try {
+    console.log("[DEBUG] Chiamata /activate →", device.id);
     const response = await fetch("/.netlify/functions/activate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ deviceId: device.id }),
     });
+    console.log("[DEBUG] /activate status:", response.status);
+
     const result = await response.json();
+    console.log("[DEBUG] /activate body:", result);
+
     if (response.ok) {
       showDevicePopup(device, clicksLeft);
     } else {
       setClicksLeft(device.storage_key, clicksLeft + 1);
       alert(result.error || "Errore attivazione");
     }
-  } catch {
+  } catch (err) {
+    console.error("[DEBUG] Errore fetch /activate:", err);
     setClicksLeft(device.storage_key, clicksLeft + 1);
     alert("Errore di rete");
   }
@@ -108,31 +123,43 @@ function closePopup(buttonId) {
   if (popup) popup.style.display = "none";
 }
 
-// --- Gestione accesso ---
+// --- Accesso ---
 async function handleCodeSubmit() {
   const code = document.getElementById("authCode").value.trim();
+  console.log("[DEBUG] Inserito codice:", code);
+
   try {
     const response = await fetch("/.netlify/functions/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
     });
+    console.log("[DEBUG] /auth response status:", response.status);
+
     const result = await response.json();
+    console.log("[DEBUG] /auth response body:", result);
+
     if (!response.ok) {
       alert("Codice errato!");
       return;
     }
+
     sessionData = result;
+    console.log("[DEBUG] Sessione avviata:", sessionData);
+
     document.getElementById("controlPanel").style.display = "block";
     document.getElementById("auth-form").style.display = "none";
     document.getElementById("btnCheckCode").style.display = "none";
     document.getElementById("important").style.display = "none";
     document.getElementById("hh2").style.display = "none";
+
     DEVICES.forEach(updateButtonState);
     updateStatusBar();
+
     timeCheckInterval = setInterval(checkTimeLimit, 10000);
     checkTimeLimit();
-  } catch {
+  } catch (err) {
+    console.error("[DEBUG] Errore fetch /auth:", err);
     alert("Errore di connessione");
   }
 }

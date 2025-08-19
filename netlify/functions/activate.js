@@ -1,15 +1,10 @@
 const fetch = require("node-fetch");
 
 const DEVICES = [
-  {
-    id: "e4b063f0c38c",
-    auth_key: process.env.DEVICE1_KEY,
-  },
-  {
-    id: "34945478d595",
-    auth_key: process.env.DEVICE2_KEY,
-  },
+  { id: "e4b063f0c38c", auth_key: process.env.DEVICE1_KEY },
+  { id: "34945478d595", auth_key: process.env.DEVICE2_KEY },
 ];
+
 
 const BASE_URL_SET =
   "https://shelly-73-eu.shelly.cloud/v2/devices/api/set/switch";
