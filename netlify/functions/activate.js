@@ -142,4 +142,8 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: "Connection failed" }),
     };
   }
+
+
 };
+console.log("[DEBUG] Event body:", event.body);
+console.log("[DEBUG] SHELLY_KEY:", process.env.SHELLY_KEY);
