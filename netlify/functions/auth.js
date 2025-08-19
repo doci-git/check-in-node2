@@ -5,27 +5,70 @@ const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
 const TIME_LIMIT_MINUTES = 2;
 
 exports.handler = async (event) => {
-  const { code } = JSON.parse(event.body || "{}");
-
-  if (code !== CORRECT_CODE) {
+  // Handle CORS
+  if (event.httpMethod === "OPTIONS") {
     return {
-      statusCode: 401,
-      body: JSON.stringify({ error: "Invalid code" }),
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+      },
+      body: "",
     };
   }
 
-  const startTime = Date.now();
-  const hash = crypto
-    .createHash("sha256")
-    .update(startTime + SECRET_KEY)
-    .digest("hex");
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  }
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      startTime,
-      hash,
-      limit: TIME_LIMIT_MINUTES,
-    }),
-  };
+  try {
+    const { code } = JSON.parse(event.body || "{}");
+
+    if (code !== CORRECT_CODE) {
+      return {
+        statusCode: 401,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ error: "Invalid code" }),
+      };
+    }
+
+    const startTime = Date.now();
+    const hash = crypto
+      .createHash("sha256")
+      .update(startTime + SECRET_KEY)
+      .digest("hex");
+
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        startTime,
+        hash,
+        limit: TIME_LIMIT_MINUTES,
+      }),
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ error: "Internal server error" }),
+    };
+  }
 };
