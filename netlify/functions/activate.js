@@ -63,6 +63,38 @@ exports.handler = async (event) => {
         };
       }
     };
+// test
+
+    exports.handler = async function (event, context) {
+      console.log("Request received:", event.body);
+
+      try {
+        const apiKey = process.env.SHELLY_KEY;
+        if (!apiKey) throw new Error("API key mancante");
+
+        const response = await fetch("https://api.esterno.com/activate", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}` },
+          body: event.body,
+        });
+
+        const data = await response.json();
+        console.log("API response:", data);
+
+        return {
+          statusCode: 200,
+          headers: { "Access-Control-Allow-Origin": "*" },
+          body: JSON.stringify(data),
+        };
+      } catch (error) {
+        console.error("Errore nella function:", error);
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+    };
+
 
     // exports.handler = async (event) => {
     //   try {
