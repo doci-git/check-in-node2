@@ -94,7 +94,7 @@ exports.handler = async (event, context) => {
       turn: "on",
     };
 
-    console.log("Request body to Shelly:", requestBody);
+    console.log("Request body to Shelly:", JSON.stringify(requestBody));
 
     const response = await fetch(BASE_URL_SET, {
       method: "POST",
@@ -102,29 +102,55 @@ exports.handler = async (event, context) => {
       body: JSON.stringify(requestBody),
     });
 
-    const data = await response.json();
-    console.log("Shelly API response status:", response.status);
-    console.log("Shelly API response data:", data);
+    let responseData;
+    const contentType = response.headers.get("content-type");
 
-    if (!response.ok) {
+    try {
+      if (contentType && contentType.includes("application/json")) {
+        responseData = await response.json();
+      } else {
+        // Se non è JSON, leggiamo come testo
+        const textResponse = await response.text();
+        console.log("Shelly non-JSON response:", textResponse);
+        responseData = { raw_response: textResponse, status: "non_json" };
+      }
+    } catch (parseError) {
+      console.log("Error parsing response, reading as text:", parseError);
+      const textResponse = await response.text();
+      responseData = { raw_response: textResponse, status: "parse_error" };
+    }
+
+    console.log("Shelly API response status:", response.status);
+    console.log("Shelly API response data:", responseData);
+
+    // Considera successo se lo status HTTP è 200-299
+    if (response.ok) {
+      return {
+        statusCode: 200,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          success: true,
+          data: responseData,
+          message: "Device activated successfully",
+        }),
+      };
+    } else {
       return {
         statusCode: 500,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ error: "Device error", shellyResponse: data }),
+        body: JSON.stringify({
+          error: "Device error",
+          shellyResponse: responseData,
+          statusCode: response.status,
+        }),
       };
     }
-
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ success: true, data }),
-    };
   } catch (error) {
     console.error("Error:", error);
     return {

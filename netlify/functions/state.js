@@ -1,7 +1,7 @@
 const crypto = require("crypto");
 
 const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
-const TIME_LIMIT_MINUTES = 2;
+const TIME_LIMIT_MINUTES = 20;
 
 exports.handler = async (event) => {
   // Handle CORS

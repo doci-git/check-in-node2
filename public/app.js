@@ -192,24 +192,22 @@ function updateButtonState(device) {
   }
 }
 
+// ... (il resto del codice rimane uguale fino alla funzione activateDevice)
+
 // --- Attivazione device ---
 async function activateDevice(device) {
   if (isFatalError) return;
-
+  
   console.log("[DEBUG] activateDevice chiamato con:", device);
-
+  
   if (await checkTimeLimit()) {
     console.log("[DEBUG] Sessione scaduta, interrompo attivazione");
     return;
   }
 
   let clicksLeft = getClicksLeft(device.storage_key);
-  console.log(
-    "[DEBUG] Click rimanenti per",
-    device.storage_key + ":",
-    clicksLeft
-  );
-
+  console.log("[DEBUG] Click rimanenti per", device.storage_key + ":", clicksLeft);
+  
   if (clicksLeft <= 0) {
     showDevicePopup(device, clicksLeft);
     return;
@@ -224,7 +222,7 @@ async function activateDevice(device) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ deviceId: device.id }),
     });
-
+    
     console.log("[DEBUG] /activate status:", response.status);
 
     const result = await response.json();
@@ -233,11 +231,26 @@ async function activateDevice(device) {
     if (response.ok) {
       console.log("[DEBUG] Attivazione riuscita");
       showDevicePopup(device, clicksLeft);
+      
+      // Mostra messaggio di successo anche se la risposta non è JSON perfetto
+      if (result.success) {
+        console.log("Dispositivo attivato con successo");
+      }
     } else {
       // Ripristina il click se c'è errore
       console.log("[DEBUG] Errore attivazione, ripristino click");
       setClicksLeft(device.storage_key, clicksLeft + 1);
-      alert(result.error || "Errore attivazione dispositivo");
+      
+      // Messaggio di errore più specifico
+      let errorMessage = "Errore attivazione dispositivo";
+      if (result.error) {
+        errorMessage = result.error;
+      }
+      if (result.shellyResponse && result.shellyResponse.raw_response) {
+        errorMessage += " - Risposta dispositivo: " + result.shellyResponse.raw_response;
+      }
+      
+      alert(errorMessage);
     }
   } catch (err) {
     console.error("[DEBUG] Errore fetch /activate:", err);
@@ -245,6 +258,8 @@ async function activateDevice(device) {
     alert("Errore di connessione al server");
   }
 }
+
+// ... (il resto del codice rimane uguale)
 
 // --- Popup ---
 function showDevicePopup(device, clicksLeft) {
