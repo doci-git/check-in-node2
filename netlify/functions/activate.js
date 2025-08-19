@@ -5,53 +5,107 @@ const DEVICES = [
   { id: "34945478d595", auth_key: process.env.DEVICE2_KEY },
 ];
 
-
 const BASE_URL_SET =
   "https://shelly-73-eu.shelly.cloud/v2/devices/api/set/switch";
 
+exports.handler = async (event, context) => {
+  // Handle CORS preflight requests
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+      },
+      body: "",
+    };
+  }
 
-exports.handler = async function (event) {
-  console.log("Body ricevuto:", event.body);
+  // Only allow POST requests
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ error: "Method not allowed" }),
+    };
+  }
 
   try {
-    const apiKey = process.env.SHELLY_KEY;
-    if (!apiKey) {
+    const { deviceId } = JSON.parse(event.body || "{}");
+
+    if (!deviceId) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({ error: "API key mancante" }),
+        statusCode: 400,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ error: "Device ID is required" }),
       };
     }
 
-    // Parsiamo il body dal frontend
-    const bodyData = JSON.parse(event.body);
+    const device = DEVICES.find((d) => d.id === deviceId);
 
-    // Esempio: richiesta alla tua API esterna
-    const response = await fetch("https://api.esterno.com/activate", {
+    if (!device) {
+      return {
+        statusCode: 404,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ error: "Device not found" }),
+      };
+    }
+
+    const response = await fetch(BASE_URL_SET, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(bodyData),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: device.id,
+        auth_key: device.auth_key,
+        channel: 0,
+        on: true,
+        turn: "on",
+      }),
     });
 
-    const text = await response.text(); // leggiamo come testo
-    let jsonData;
-    try {
-      jsonData = JSON.parse(text); // prova a fare il parse JSON
-    } catch (e) {
-      jsonData = { error: text }; // fallback se non è JSON
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        statusCode: 500,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ error: "Device error", data }),
+      };
     }
 
     return {
       statusCode: 200,
-      body: JSON.stringify(jsonData),
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ success: true, data }),
     };
-  } catch (err) {
-    console.error("Errore nella function:", err);
+  } catch (error) {
+    console.error("Error:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        error: "Connection failed",
+        details: error.message,
+      }),
     };
   }
 };
