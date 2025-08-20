@@ -1,30 +1,27 @@
-const crypto = require("crypto");
+// functions/auth.js
+const jwt = require("jsonwebtoken");
 
 const CORRECT_CODE = process.env.CORRECT_CODE || "2245";
 const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
-const TIME_LIMIT_MINUTES = 120; // 2 ore invece di 2 minuti
+const TIME_LIMIT_MINUTES = 20; // 2 ore
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
 
 exports.handler = async (event) => {
-  // Handle CORS
+  // CORS preflight
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-      },
-      body: "",
-    };
+    return { statusCode: 200, headers: CORS_HEADERS, body: "" };
   }
 
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-      },
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
@@ -35,44 +32,35 @@ exports.handler = async (event) => {
     if (code !== CORRECT_CODE) {
       return {
         statusCode: 401,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Content-Type": "application/json",
-        },
+        headers: CORS_HEADERS,
         body: JSON.stringify({ error: "Invalid code" }),
       };
     }
 
-    const startTime = Date.now();
-    const hash = crypto
-      .createHash("sha256")
-      .update(startTime + SECRET_KEY)
-      .digest("hex");
+    // payload minimale: puoi aggiungere info come ruoli, device, ecc.
+    const payload = { authorized: true };
+    const token = jwt.sign(payload, SECRET_KEY, {
+      expiresIn: `${TIME_LIMIT_MINUTES}m`,
+      issuer: "netlify-fn/auth",
+    });
+
+    const decoded = jwt.decode(token);
 
     return {
       statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-      },
+      headers: CORS_HEADERS,
       body: JSON.stringify({
-        startTime,
-        hash,
-        limit: TIME_LIMIT_MINUTES,
-        // Aggiungi un token persistente
-        persistentToken: crypto
-          .createHash("sha256")
-          .update(startTime + SECRET_KEY + "persistent")
-          .digest("hex"),
+        token,
+        // info utili al client
+        expiresAt: decoded.exp * 1000,
+        issuedAt: decoded.iat * 1000,
+        limitMinutes: TIME_LIMIT_MINUTES,
       }),
     };
   } catch (error) {
     return {
       statusCode: 500,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "application/json",
-      },
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: "Internal server error" }),
     };
   }
