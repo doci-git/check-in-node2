@@ -1,80 +1,114 @@
-// functions/state.js
-const jwt = require("jsonwebtoken");
+import jwt from "jsonwebtoken";
 
-const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
-};
-
-// helper per estrarre il token dal body o dall'header
-function getTokenFromEvent(event) {
-  const auth = event.headers?.authorization || event.headers?.Authorization;
-  if (auth && auth.startsWith("Bearer ")) return auth.slice(7);
-  try {
-    const body = JSON.parse(event.body || "{}");
-    if (body.token) return body.token;
-  } catch (_) {}
-  return null;
+// Memory store condiviso globale
+if (!global.memoryStore) {
+  global.memoryStore = new Map();
 }
 
-exports.handler = async (event) => {
-  // CORS preflight
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: CORS_HEADERS, body: "" };
+function getStore() {
+  try {
+    if (process.env.NETLIFY) {
+      return require("@netlify/kv");
+    }
+  } catch (e) {
+    console.warn("[DEBUG] KV non disponibile, uso memory store");
   }
 
+  return {
+    get: async (k) => {
+      const value = global.memoryStore.get(k);
+      console.log(`[DEBUG] Lettura chiave: ${k}`, value);
+      return value;
+    },
+    set: async (k, v) => {
+      console.log(`[DEBUG] Salvando chiave: ${k}`, v);
+      global.memoryStore.set(k, v);
+    },
+  };
+}
+
+const kv = getStore();
+
+const SECRET_KEY = process.env.SECRET_KEY || "supersecret";
+
+export async function handler(event) {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      headers: CORS_HEADERS,
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
   try {
-    const token = getTokenFromEvent(event);
+    const authHeader = event.headers.authorization || "";
+    const token = authHeader.replace("Bearer ", "");
     if (!token) {
       return {
         statusCode: 400,
-        headers: CORS_HEADERS,
         body: JSON.stringify({ error: "Token required" }),
       };
     }
 
-    // verifica il JWT
-    const decoded = jwt.verify(token, SECRET_KEY);
+    let decoded;
+    try {
+      decoded = jwt.verify(token, SECRET_KEY);
+      console.log("[DEBUG] Token decodificato:", decoded);
+    } catch (e) {
+      console.error("[DEBUG] Errore verifica token:", e);
+      return {
+        statusCode: 401,
+        body: JSON.stringify({ error: "Token non valido" }),
+      };
+    }
 
-    // calcola tempo residuo
-    const nowSec = Math.floor(Date.now() / 1000);
-    const secondsLeft = Math.max(0, (decoded.exp || 0) - nowSec);
-    const minutesLeft = Math.floor(secondsLeft / 60);
-    const remSeconds = secondsLeft % 60;
+    const deviceId = decoded.deviceId;
+    const deviceKey = `device:${deviceId}`;
+    const deviceData = await kv.get(deviceKey);
+
+    console.log(`[DEBUG] Device cercato: ${deviceKey}`, deviceData);
+
+    if (!deviceData) {
+      console.log(`[DEBUG] Device non trovato: ${deviceKey}`);
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Device sconosciuto" }),
+      };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    console.log(
+      `[DEBUG] Ora attuale: ${now}, Scadenza: ${deviceData.expiresAt}`
+    );
+
+    if (deviceData.blocked || now >= deviceData.expiresAt) {
+      // Blocca definitivamente
+      await kv.set(deviceKey, { ...deviceData, blocked: true });
+      return {
+        statusCode: 403,
+        body: JSON.stringify({ error: "Sessione scaduta - device bloccato" }),
+      };
+    }
+
+    const remaining = deviceData.expiresAt - now;
+    const minutesLeft = Math.floor(remaining / 60);
+    const secondsLeft = remaining % 60;
+
+    console.log(`[DEBUG] Tempo rimanente: ${minutesLeft}:${secondsLeft}`);
 
     return {
       statusCode: 200,
-      headers: CORS_HEADERS,
       body: JSON.stringify({
         valid: true,
         minutesLeft,
-        secondsLeft: remSeconds,
-        expiresAt: (decoded.exp || 0) * 1000,
+        secondsLeft,
+        deviceId: deviceData.deviceId,
       }),
     };
-  } catch (error) {
-    console.error("STATE function error:", error);
-
-    // restituisce sempre JSON valido anche in caso di errore
+  } catch (err) {
+    console.error("[ERROR] state:", err);
     return {
       statusCode: 500,
-      headers: CORS_HEADERS,
-      body: JSON.stringify({
-        error: "Internal server error",
-        details: error.message,
-      }),
+      body: JSON.stringify({ error: "Internal server error" }),
     };
   }
-};
+}
