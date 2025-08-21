@@ -1,99 +1,67 @@
-import jwt from "jsonwebtoken";
+// functions/auth.js
+const jwt = require("jsonwebtoken");
 
-// Memory store condiviso globale
-if (!global.memoryStore) {
-  global.memoryStore = new Map();
-}
+const CORRECT_CODE = process.env.CORRECT_CODE || "2245";
+const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
+const TIME_LIMIT_MINUTES = 20; // 2 ore
 
-function getStore() {
-  try {
-    if (process.env.NETLIFY) {
-      return require("@netlify/kv");
-    }
-  } catch (e) {
-    console.warn("[DEBUG] KV non disponibile, uso memory store");
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+
+exports.handler = async (event) => {
+  // CORS preflight
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: CORS_HEADERS, body: "" };
   }
 
-  return {
-    get: async (k) => global.memoryStore.get(k),
-    set: async (k, v) => {
-      console.log(`[DEBUG] Salvando chiave: ${k}`, v);
-      global.memoryStore.set(k, v);
-    },
-  };
-}
-
-const kv = getStore();
-
-const SECRET_KEY = process.env.SECRET_KEY || "musart_secret_123";
-const CORRECT_CODE = process.env.CORRECT_CODE || "2245";
-const TIME_LIMIT_MINUTES = 22;
-
-export async function handler(event) {
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
 
   try {
-    const { code, deviceId } = JSON.parse(event.body || "{}");
-    if (!code || !deviceId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "Code and deviceId required" }),
-      };
-    }
-
-    console.log(
-      `[DEBUG] Auth richiesta per device: ${deviceId}, codice: ${code}`
-    );
+    const { code } = JSON.parse(event.body || "{}");
 
     if (code !== CORRECT_CODE) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ error: "Codice errato" }),
+        headers: CORS_HEADERS,
+        body: JSON.stringify({ error: "Invalid code" }),
       };
     }
 
-    // Controlla se il device è già bloccato
-    const deviceKey = `device:${deviceId}`;
-    const existing = await kv.get(deviceKey);
-    console.log(`[DEBUG] Device esistente per ${deviceKey}:`, existing);
-
-    if (existing && existing.blocked) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: "Device bloccato definitivamente" }),
-      };
-    }
-
-    const now = Math.floor(Date.now() / 1000);
-    const expiresAt = now + TIME_LIMIT_MINUTES * 60;
-
-    const token = jwt.sign({ deviceId }, SECRET_KEY, {
-      expiresIn: TIME_LIMIT_MINUTES * 60,
+    // payload minimale: puoi aggiungere info come ruoli, device, ecc.
+    const payload = { authorized: true };
+    const token = jwt.sign(payload, SECRET_KEY, {
+      expiresIn: `${TIME_LIMIT_MINUTES}m`,
+      issuer: "netlify-fn/auth",
     });
 
-    // Salva nel KV/memory
-    const deviceData = { expiresAt, blocked: false, deviceId };
-    await kv.set(deviceKey, deviceData);
-    console.log(`[DEBUG] Device salvato: ${deviceKey}`, deviceData);
+    const decoded = jwt.decode(token);
 
     return {
       statusCode: 200,
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         token,
-        expiresAt: expiresAt * 1000,
-        deviceId,
+        // info utili al client
+        expiresAt: decoded.exp * 1000,
+        issuedAt: decoded.iat * 1000,
+        limitMinutes: TIME_LIMIT_MINUTES,
       }),
     };
-  } catch (err) {
-    console.error("[ERROR] auth:", err);
+  } catch (error) {
     return {
       statusCode: 500,
+      headers: CORS_HEADERS,
       body: JSON.stringify({ error: "Internal server error" }),
     };
   }
-}
+};

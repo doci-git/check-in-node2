@@ -8,19 +8,7 @@ let timeCheckInterval;
 let sessionData = null;
 let isFatalError = false;
 
-// Genera o recupera deviceId univoco
-function getOrCreateDeviceId() {
-  let id = localStorage.getItem("deviceId");
-  if (!id) {
-    // Formato più semplice e compatibile
-    id = "dev_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem("deviceId", id);
-  }
-  console.log("[DEBUG] Device ID:", id);
-  return id;
-}
-
-// Gestione storage PERSISTENTE
+// --- Gestione storage PERSISTENTE ---
 function setPersistentStorage(key, value) {
   try {
     sessionStorage.setItem(key, value);
@@ -46,7 +34,7 @@ function removePersistentStorage(key) {
   } catch (e) {}
 }
 
-// Gestione sessioni multiple
+// --- Gestione sessioni multiple ---
 function saveSession(session) {
   sessionData = session;
   setPersistentStorage("sessionData", JSON.stringify(session));
@@ -54,7 +42,6 @@ function saveSession(session) {
     "sessionBackup",
     JSON.stringify({ ...session, savedAt: Date.now() })
   );
-  console.log("[DEBUG] Sessione salvata:", session);
 }
 
 function loadSession() {
@@ -69,7 +56,7 @@ function loadSession() {
   return null;
 }
 
-// Controllo sessione esistente
+// --- Controllo sessione esistente ---
 function checkExistingSession() {
   const savedSession = loadSession();
   if (savedSession && savedSession.token) {
@@ -87,7 +74,7 @@ function checkExistingSession() {
   return false;
 }
 
-// Mostra pannello
+// --- Mostra pannello ---
 function showControlPanel() {
   if (isFatalError) return;
   document
@@ -99,7 +86,7 @@ function showControlPanel() {
   document.getElementById("hh2")?.style.setProperty("display", "none");
 }
 
-// Mostra form
+// --- Mostra form ---
 function showAuthForm() {
   if (isFatalError) return;
   document.getElementById("controlPanel")?.style.setProperty("display", "none");
@@ -111,7 +98,7 @@ function showAuthForm() {
   document.getElementById("hh2")?.style.setProperty("display", "block");
 }
 
-// Pulisci sessione
+// --- Pulisci sessione ---
 function clearSession() {
   if (isFatalError) return;
   sessionData = null;
@@ -123,14 +110,14 @@ function clearSession() {
   if (authCode) authCode.value = "";
 }
 
-// Errore fatale
+// --- Errore fatale ---
 function showFatalError(message) {
   isFatalError = true;
   clearInterval(timeCheckInterval);
   document.body.innerHTML = `<div style="display:flex;justify-content:center;align-items:center;height:100vh;background:#121111;color:#ff6b6b;font-size:24px;">${message}</div>`;
 }
 
-// Controllo tempo con JWT
+// --- Controllo tempo con JWT ---
 async function checkTimeLimit() {
   if (isFatalError) return true;
   if (!sessionData || !sessionData.token) {
@@ -140,11 +127,6 @@ async function checkTimeLimit() {
   }
 
   try {
-    console.log(
-      "[DEBUG] Invio richiesta /state con token:",
-      sessionData.token.substring(0, 20) + "..."
-    );
-
     const response = await fetch("/.netlify/functions/state", {
       method: "POST",
       headers: {
@@ -173,13 +155,12 @@ async function checkTimeLimit() {
     return false;
   } catch (err) {
     console.error("[DEBUG] Errore fetch /state:", err);
-    const timeRemaining = document.getElementById("timeRemaining");
-    if (timeRemaining) timeRemaining.textContent = "--:--";
+    document.getElementById("timeRemaining").textContent = "--:--";
     return false;
   }
 }
 
-// Click persistenti
+// --- Click persistenti ---
 function getClicksLeft(key) {
   const stored = getPersistentStorage(key);
   return stored === null ? MAX_CLICKS : parseInt(stored, 10);
@@ -210,7 +191,7 @@ function updateButtonState(device) {
   }
 }
 
-// Attivazione device
+// --- Attivazione device ---
 async function activateDevice(device) {
   if (isFatalError) return;
   if (await checkTimeLimit()) return;
@@ -224,8 +205,6 @@ async function activateDevice(device) {
   setClicksLeft(device.storage_key, --clicksLeft);
 
   try {
-    console.log("[DEBUG] Invio attivazione per dispositivo:", device.id);
-
     const response = await fetch("/.netlify/functions/activate", {
       method: "POST",
       headers: {
@@ -236,7 +215,7 @@ async function activateDevice(device) {
     });
 
     const result = await response.json();
-    console.log("[DEBUG] /activate response:", result);
+    console.log("[DEBUG] /activate:", result);
 
     if (response.ok) {
       showDevicePopup(device, clicksLeft);
@@ -251,7 +230,7 @@ async function activateDevice(device) {
   }
 }
 
-// Popup
+// --- Popup ---
 function showDevicePopup(device, clicksLeft) {
   const popup = document.getElementById(`popup-${device.button_id}`);
   const text = document.getElementById(`popup-text-${device.button_id}`);
@@ -268,7 +247,7 @@ function closePopup(buttonId) {
   if (popup) popup.style.display = "none";
 }
 
-// Login
+// --- Login ---
 async function handleCodeSubmit() {
   const code = document.getElementById("authCode").value.trim();
   if (!code) {
@@ -277,13 +256,10 @@ async function handleCodeSubmit() {
   }
 
   try {
-    const deviceId = getOrCreateDeviceId();
-    console.log("[DEBUG] Invio auth con:", { code, deviceId });
-
     const response = await fetch("/.netlify/functions/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, deviceId }),
+      body: JSON.stringify({ code }),
     });
 
     if (!response.ok) {
@@ -293,10 +269,10 @@ async function handleCodeSubmit() {
     }
 
     const result = await response.json();
-    console.log("[DEBUG] /auth response:", result);
+    console.log("[DEBUG] /auth:", result);
 
-    // Salva il token + scadenza
-    saveSession({ token: result.token, expiresAt: result.expiresAt });
+    // Salva il token restituito
+    saveSession({ token: result.token });
     showControlPanel();
 
     DEVICES.forEach(updateButtonState);
@@ -310,7 +286,7 @@ async function handleCodeSubmit() {
   }
 }
 
-// Recupero sessione backup
+// --- Recupero sessione backup ---
 function attemptSessionRecovery() {
   const backup = getPersistentStorage("sessionBackup");
   if (backup) {
@@ -333,7 +309,7 @@ function attemptSessionRecovery() {
   return false;
 }
 
-// Init
+// --- Init ---
 function init() {
   if (getPersistentStorage("clicks_MainDoor") === null)
     setPersistentStorage("clicks_MainDoor", MAX_CLICKS.toString());
@@ -345,6 +321,7 @@ function init() {
   document
     .getElementById("btnCheckCode")
     ?.addEventListener("click", handleCodeSubmit);
+
   document.getElementById("authCode")?.addEventListener("keypress", (e) => {
     if (e.key === "Enter") handleCodeSubmit();
   });
