@@ -2,8 +2,7 @@ const crypto = require("crypto");
 const { SECRET_KEY, MAX_CLICKS, TIME_LIMIT_MINUTES } = require("./config");
 const DEVICES = require("./devices");
 
-// Memoria sessioni (in futuro meglio un DB tipo Redis o MongoDB)
-const sessions = {};
+const sessions = {}; // ⚠️ memoria volatile (si resetta a ogni deploy/cold start)
 
 function generateHash(value) {
   return crypto
@@ -45,9 +44,4 @@ function useClick(session, storageKey) {
   return session.clicks[storageKey];
 }
 
-module.exports = {
-  createSession,
-  getSession,
-  isExpired,
-  useClick,
-};
+module.exports = { createSession, getSession, isExpired, useClick };
