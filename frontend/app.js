@@ -185,6 +185,29 @@
     }
   }
 
+  function clearAllClientStorage() {
+    try {
+      localStorage.clear();
+    } catch (error) {
+      console.error("Impossibile svuotare il localStorage:", error);
+    }
+    try {
+      sessionStorage.clear();
+    } catch (error) {
+      console.warn("Impossibile svuotare la sessionStorage:", error);
+    }
+    try {
+      const cookies = document.cookie.split(";");
+      for (const cookie of cookies) {
+        const [name] = cookie.trim().split("=");
+        if (!name) continue;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      }
+    } catch (error) {
+      console.warn("Impossibile rimuovere i cookie di sessione:", error);
+    }
+  }
+
   // =============================================
   // CRITTOGRAFIA
   // =============================================
@@ -294,20 +317,13 @@
         10
       );
       if (serverUnblockVer > localUnblockVer) {
-        localStorage.setItem(UNBLOCK_VERSION_KEY, String(serverUnblockVer));
-        unblockAccess();
-        localStorage.removeItem("login_lock_until");
-        localStorage.removeItem("login_attempts");
-        qs("expiredOverlay")?.classList.add("hidden");
-        qs("sessionExpired")?.classList.add("hidden");
-        qs("controlPanel")?.classList.add("hidden");
-        showAuthForm();
-        updateDoorVisibility();
-        showNotification(
-          s.global_unblock_message ||
-            "Sessione ripristinata. Inserisci il codice per accedere."
-        );
-        updateLockUI();
+        handleRemoteSessionReset({
+          message:
+            s.global_unblock_message ||
+            "Sessione ripristinata. Inserisci il codice per accedere.",
+          unblockVersion: serverUnblockVer,
+          codeVersion: serverCodeVer,
+        });
       }
     });
   }
@@ -938,6 +954,39 @@
       localStorage.removeItem("usage_hash");
       sessionStartTime = null;
     } catch {}
+  }
+
+  function handleRemoteSessionReset({
+    message,
+    unblockVersion,
+    codeVersion,
+  } = {}) {
+    stopTokenRealtimeListener();
+    clearManualSession();
+    clearAllClientStorage();
+    if (Number.isFinite(codeVersion)) {
+      localStorage.setItem(CODE_VERSION_KEY, String(codeVersion));
+      currentCodeVersion = codeVersion;
+    }
+    if (Number.isFinite(unblockVersion)) {
+      localStorage.setItem(UNBLOCK_VERSION_KEY, String(unblockVersion));
+    }
+    isTokenSession = false;
+    window.isTokenSession = false;
+    currentTokenId = null;
+    currentTokenCustomCode = null;
+    sessionStartTime = null;
+    unblockAccess();
+    qs("expiredOverlay")?.classList.add("hidden");
+    qs("sessionExpired")?.classList.add("hidden");
+    qs("controlPanel")?.classList.add("hidden");
+    showAuthForm();
+    updateDoorVisibility();
+    updateLockUI();
+    showNotification(
+      message ||
+        "Sessione ripristinata dall'amministratore. Inserisci nuovamente il codice."
+    );
   }
 
   function blockAccess(reason = "Accesso bloccato", token = null) {
