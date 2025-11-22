@@ -378,6 +378,7 @@ input[type="password"]:focus {
 }
 
 .important p {
+  font: 1.1em sans-serif;
   color: var(--text-primary);
   line-height: 1.9;
   text-align: center;
