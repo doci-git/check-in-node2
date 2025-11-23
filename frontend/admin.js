@@ -7,14 +7,15 @@
   // =============================================
   // Your web app's Firebase configuration
   const firebaseConfig = {
-    apiKey: "AIzaSyD8oQsvmn7nyV2nYnExD-xw6gchwRJ0Bog",
-    authDomain: "multi-client-77378.firebaseapp.com",
+    apiKey: "AIzaSyCuy3Sak96soCla7b5Yb5wmkdVfMqAXmok",
+    authDomain: "check-in-4e0e9.firebaseapp.com",
     databaseURL:
-      "https://multi-client-77378-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "multi-client-77378",
-    storageBucket: "multi-client-77378.firebasestorage.app",
-    messagingSenderId: "654507957917",
-    appId: "1:654507957917:web:3be18327d2951774113e74",
+      "https://check-in-4e0e9-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "check-in-4e0e9",
+    storageBucket: "check-in-4e0e9.firebasestorage.app",
+    messagingSenderId: "723880990177",
+    appId: "1:723880990177:web:f002733b2cc2e50d172ea0",
+    measurementId: "G-H97GB9L4F5",
   };
   // Valori di fallback (possono essere sovrascritti da settings Firebase)
   let ADMIN_PASSWORD = "";
