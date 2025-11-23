@@ -1,1 +1,1 @@
-https://musart-checkin.netlify.app/
+https://musart-check-in.netlify.app/
