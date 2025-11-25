@@ -883,6 +883,21 @@
       return false;
     }
 
+    // Blocca subito se il token e' gia' stato segnato come non valido per questo dispositivo
+    if (isTokenDeviceBlocked(token)) {
+      const r =
+        localStorage.getItem(`token_device_reason_${token}`) ||
+        "Sessione token scaduta su questo dispositivo";
+      showTokenError(r);
+      try {
+        blockTokenOnly(r, token);
+        localStorage.removeItem(`token_ok_${token}`);
+      } catch {}
+      showSessionExpired();
+      maybeCleanUrl();
+      return false;
+    }
+
     try {
       const snapshot = await database
         .ref("secure_links/" + token)
@@ -890,7 +905,9 @@
       if (!snapshot.exists()) {
         showTokenError("Invalid token");
         try {
+          markTokenDeviceBlocked(token, "Invalid token");
           blockTokenOnly("Invalid token", token);
+          localStorage.removeItem(`token_ok_${token}`);
         } catch {}
         showSessionExpired();
         maybeCleanUrl();
@@ -899,20 +916,13 @@
 
       const linkData = snapshot.val();
 
-      // Se questo token è stato bloccato su questo dispositivo (es. tempo sessione scaduto), non riattivarlo su refresh
-      if (isTokenDeviceBlocked(token)) {
-        const r = localStorage.getItem(`token_device_reason_${token}`) || "Sessione token scaduta su questo dispositivo";
-        showTokenError(r);
-        try { blockTokenOnly(r, token); } catch {}
-        showSessionExpired();
-        maybeCleanUrl();
-        return false;
-      }
       const isValid = validateSecureToken(linkData);
       if (!isValid.valid) {
         showTokenError(isValid.reason);
         try {
+          markTokenDeviceBlocked(token, isValid.reason || "Access blocked");
           blockTokenOnly(isValid.reason || "Access blocked", token);
+          localStorage.removeItem(`token_ok_${token}`);
         } catch {}
         showSessionExpired();
         maybeCleanUrl();
@@ -928,6 +938,7 @@
       localStorage.removeItem("block_manual_login");
       localStorage.removeItem("blocked_token");
       localStorage.removeItem("blocked_reason");
+      clearTokenDeviceBlock(token);
       // Assicurati che eventuali overlay di scadenza non restino visibili
       try {
         unblockAccess();
@@ -945,7 +956,9 @@
       console.error("Token verification error:", error);
       showTokenError("Verification error");
       try {
+        markTokenDeviceBlocked(token, "Verification error");
         blockTokenOnly("Verification error", token);
+        localStorage.removeItem(`token_ok_${token}`);
       } catch {}
       showSessionExpired();
       maybeCleanUrl();
