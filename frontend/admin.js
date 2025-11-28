@@ -5,9 +5,18 @@
   // =============================================
   // CONFIGURAZIONE E INIZIALIZZAZIONE
   // =============================================
-  const FIREBASE_CONFIG_ENDPOINT = "/.netlify/functions/firebase-config";
-  let firebaseConfigCache = null;
-  let database = null;
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCuy3Sak96soCla7b5Yb5wmkdVfMqAXmok",
+    authDomain: "check-in-4e0e9.firebaseapp.com",
+    databaseURL:
+      "https://check-in-4e0e9-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "check-in-4e0e9",
+    storageBucket: "check-in-4e0e9.firebasestorage.app",
+    messagingSenderId: "723880990177",
+    appId: "1:723880990177:web:f002733b2cc2e50d172ea0",
+    measurementId: "G-H97GB9L4F5",
+  };
   // Valori di fallback (possono essere sovrascritti da settings Firebase)
   let ADMIN_PASSWORD = "";
   const SHELLY_FUNCTION_URL = "/api/shelly-control";
@@ -53,43 +62,16 @@
     },
   ]);
 
-  // Inizializza Firebase (se non gia\' inizializzato altrove)
-  async function getFirebaseConfig() {
-    if (firebaseConfigCache) return firebaseConfigCache;
-    if (window.__FIREBASE_CONFIG__) {
-      firebaseConfigCache = window.__FIREBASE_CONFIG__;
-      return firebaseConfigCache;
-    }
-    const meta = document.querySelector('meta[name="firebase-config"]');
-    if (meta?.content) {
-      try {
-        firebaseConfigCache = JSON.parse(meta.content);
-        return firebaseConfigCache;
-      } catch (e) {
-        console.warn("Impossibile parse meta firebase-config:", e);
-      }
-    }
-    const resp = await fetch(FIREBASE_CONFIG_ENDPOINT, { cache: "no-store" });
-    if (!resp.ok) {
-      throw new Error(`Impossibile ottenere la config Firebase (${resp.status})`);
-    }
-    firebaseConfigCache = await resp.json();
-    return firebaseConfigCache;
+  // Inizializza Firebase (se non gi�� inizializzato altrove)
+  if (!firebase.apps || firebase.apps.length === 0) {
+    firebase.initializeApp(firebaseConfig);
   }
-
-  async function ensureFirebaseInitialized() {
-    if (database) return;
-    const firebaseConfig = await getFirebaseConfig();
-    if (!firebase.apps || firebase.apps.length === 0) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    database = firebase.database();
-    // Rendi la sessione persistente tra i reload del browser
-    try {
-      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    } catch (e) {
-      console.warn("Impossibile impostare la persistenza Auth:", e);
-    }
+  const database = firebase.database();
+  // Rendi la sessione persistente tra i reload del browser
+  try {
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+  } catch (e) {
+    console.warn("Impossibile impostare la persistenza Auth:", e);
   }
   // =============================================
   // UTILS
@@ -1118,13 +1100,6 @@
   // BINDING EVENTI DOPO DOMContentLoaded
   // =============================================
   document.addEventListener("DOMContentLoaded", async () => {
-    try {
-      await ensureFirebaseInitialized();
-    } catch (e) {
-      console.error("Impossibile inizializzare Firebase:", e);
-      alertOnce("Configurazione non disponibile. Riprova piu' tardi.");
-      return;
-    }
     await loadAllowedAdminEmails();
 
     // Auth state listener

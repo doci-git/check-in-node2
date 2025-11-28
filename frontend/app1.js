@@ -4,7 +4,17 @@
   // =============================================
   // CONFIGURAZIONE E INIZIALIZZAZIONE
   // =============================================
-  const FIREBASE_CONFIG_ENDPOINT = "/.netlify/functions/firebase-config";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCuy3Sak96soCla7b5Yb5wmkdVfMqAXmok",
+    authDomain: "check-in-4e0e9.firebaseapp.com",
+    databaseURL:
+      "https://check-in-4e0e9-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "check-in-4e0e9",
+    storageBucket: "check-in-4e0e9.firebasestorage.app",
+    messagingSenderId: "723880990177",
+    appId: "1:723880990177:web:f002733b2cc2e50d172ea0",
+    measurementId: "G-H97GB9L4F5",
+  };
   const DOOR_API_URL = "/api/shelly-control";
   const SECRET_KEY = "musart_secret_123_fixed_key";
   const CODE_VERSION_KEY = "code_version";
@@ -77,38 +87,10 @@
   // =============================================
   // Firebase init
   // =============================================
-  let firebaseConfigCache = null;
-  let database = null;
-
-  function readFirebaseConfigFromMeta() {
-    const meta = document.querySelector('meta[name="firebase-config"]');
-    if (!meta?.content) return null;
-    try {
-      return JSON.parse(meta.content);
-    } catch (e) {
-      console.warn("Impossibile parse meta firebase-config:", e);
-      return null;
-    }
+  if (!firebase.apps || firebase.apps.length === 0) {
+    firebase.initializeApp(firebaseConfig);
   }
-
-  async function getFirebaseConfig() {
-    if (firebaseConfigCache) return firebaseConfigCache;
-    if (window.__FIREBASE_CONFIG__) {
-      firebaseConfigCache = window.__FIREBASE_CONFIG__;
-      return firebaseConfigCache;
-    }
-    const metaConfig = readFirebaseConfigFromMeta();
-    if (metaConfig) {
-      firebaseConfigCache = metaConfig;
-      return firebaseConfigCache;
-    }
-    const resp = await fetch(FIREBASE_CONFIG_ENDPOINT, { cache: "no-store" });
-    if (!resp.ok) {
-      throw new Error(`Impossibile ottenere la config Firebase (${resp.status})`);
-    }
-    firebaseConfigCache = await resp.json();
-    return firebaseConfigCache;
-  }
+  const database = firebase.database();
 
   // =============================================
   // UTILS
@@ -1397,18 +1379,6 @@
     // FIXED: Always hide overlays on startup
     qs("expiredOverlay")?.classList.add("hidden");
     qs("sessionExpired")?.classList.add("hidden");
-
-    try {
-      const firebaseConfig = await getFirebaseConfig();
-      if (!firebase.apps || firebase.apps.length === 0) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      database = firebase.database();
-    } catch (err) {
-      console.error("Firebase init failed:", err);
-      showFatalError("Unable to load configuration. Please try again later.");
-      return;
-    }
 
     const firebaseSettings = await loadSettingsFromFirebase();
     if (firebaseSettings) applyFirebaseSettings(firebaseSettings);
