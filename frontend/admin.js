@@ -6,17 +6,14 @@
   // CONFIGURAZIONE E INIZIALIZZAZIONE
   // =============================================
   // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyCuy3Sak96soCla7b5Yb5wmkdVfMqAXmok",
-    authDomain: "check-in-4e0e9.firebaseapp.com",
-    databaseURL:
-      "https://check-in-4e0e9-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "check-in-4e0e9",
-    storageBucket: "check-in-4e0e9.firebasestorage.app",
-    messagingSenderId: "723880990177",
-    appId: "1:723880990177:web:f002733b2cc2e50d172ea0",
-    measurementId: "G-H97GB9L4F5",
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyCuaY2HQzUneKpHBXX-p1GaEjdI2tdgjso",
+  authDomain: "planning-with-ai-dbf8d.firebaseapp.com",
+  projectId: "planning-with-ai-dbf8d",
+  storageBucket: "planning-with-ai-dbf8d.firebasestorage.app",
+  messagingSenderId: "314211443397",
+  appId: "1:314211443397:web:76fcd26e997719fe9386ac",
+};
   // Valori di fallback (possono essere sovrascritti da settings Firebase)
   let ADMIN_PASSWORD = "";
   const SHELLY_FUNCTION_URL = "/api/shelly-control";
