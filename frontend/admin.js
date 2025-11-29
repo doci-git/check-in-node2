@@ -13,6 +13,8 @@ const firebaseConfig = {
   storageBucket: "planning-with-ai-dbf8d.firebasestorage.app",
   messagingSenderId: "314211443397",
   appId: "1:314211443397:web:76fcd26e997719fe9386ac",
+  databaseURL:
+    "https://planning-with-ai-dbf8d.europe-west1.firebasedatabase.app/",
 };
   // Valori di fallback (possono essere sovrascritti da settings Firebase)
   let ADMIN_PASSWORD = "";
